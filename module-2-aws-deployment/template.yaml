@@ -7,7 +7,7 @@ Globals:
   Function:
     Timeout: 300  # 5 minutes (can be increased up to 900 seconds / 15 minutes)
     MemorySize: 512  # MB - increase if needed for faster cold starts
-    Runtime: python3.9
+    Runtime: python3.12
     Environment:
       Variables:
         # These will be set from environment variables during deployment
@@ -77,12 +77,8 @@ Resources:
         AllowMethods: "'POST, OPTIONS'"
         AllowHeaders: "'Content-Type'"
         AllowOrigin: "'*'"
-      # Enable CloudWatch logging
-      MethodSettings:
-        - ResourcePath: '/*'
-          HttpMethod: '*'
-          LoggingLevel: INFO
-          DataTraceEnabled: true
+      # CloudWatch logging disabled to avoid IAM role requirement
+      # You can still see Lambda logs in CloudWatch
 
 # Outputs provide important information after deployment
 Outputs:

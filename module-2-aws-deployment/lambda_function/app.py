@@ -52,7 +52,7 @@ def lambda_handler(event, context):
             })
         
         # Generate unique request ID for state tracking
-        request_id = context.request_id
+        request_id = context.aws_request_id
         
         print(f"Processing research request for topic: {topic}")
         print(f"Request ID: {request_id}")

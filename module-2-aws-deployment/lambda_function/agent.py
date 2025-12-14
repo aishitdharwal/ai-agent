@@ -83,16 +83,40 @@ class ResearchAgent:
         
         messages = [
             SystemMessage(content="""Generate 2-3 specific search queries for researching this topic.
-Return ONLY a JSON array of strings."""),
+
+IMPORTANT: Return ONLY a valid JSON array of strings. Example:
+["query 1", "query 2", "query 3"]
+
+Do not include any other text, markdown, or formatting."""),
             HumanMessage(content=f"Topic: {state['topic']}")
         ]
         
         response = self.llm.invoke(messages)
         
         try:
-            queries = json.loads(response.content)
-        except:
-            queries = [state['topic']]
+            # Clean the response
+            content = response.content.strip()
+            
+            # Remove markdown code blocks if present
+            if content.startswith('```'):
+                content = content.split('\n', 1)[1]
+                content = content.rsplit('\n', 1)[0]
+                content = content.strip()
+            
+            if content.startswith('json'):
+                content = content[4:].strip()
+            
+            queries = json.loads(content)
+            
+            # Ensure it's a list of strings
+            if not isinstance(queries, list):
+                queries = [state['topic']]
+            
+            queries = [str(q) for q in queries]
+            
+        except Exception as e:
+            print(f"[generate_queries] Error parsing queries: {e}")
+            queries = [state['topic']]  # Fallback to simple query
         
         print(f"[generate_queries] Generated: {queries}")
         
@@ -126,25 +150,70 @@ Return ONLY a JSON array of strings."""),
         """Extract key findings from search results"""
         print(f"[extract_findings] Processing {len(state['search_results'])} results")
         
+        # Check if we have search results
+        if not state['search_results']:
+            print(f"[extract_findings] No search results to process")
+            return {
+                **state,
+                "key_findings": ["No search results found"],
+                "current_step": "extract_findings"
+            }
+        
         results_text = "\n\n".join([
             f"Source {i+1}: {result.get('content', 'No content')}"
             for i, result in enumerate(state['search_results'])
         ])
         
         messages = [
-            SystemMessage(content="""Extract 5-7 key findings from the search results.
-Return ONLY a JSON array of strings."""),
-            HumanMessage(content=f"Topic: {state['topic']}\n\nResults:\n{results_text}")
+            SystemMessage(content="""You are a research analyst. Extract 5-7 key findings from the search results.
+            
+IMPORTANT: Return ONLY a valid JSON array of strings. Example:
+["Finding 1", "Finding 2", "Finding 3"]
+
+Do not include any other text, markdown, or formatting."""),
+            HumanMessage(content=f"Topic: {state['topic']}\n\nSearch Results:\n{results_text}")
         ]
         
         response = self.llm.invoke(messages)
         
+        # More robust JSON parsing
         try:
-            findings = json.loads(response.content)
-        except:
-            findings = ["Unable to extract findings"]
-        
-        print(f"[extract_findings] Extracted {len(findings)} findings")
+            # Try to extract JSON from response (in case LLM adds backticks)
+            content = response.content.strip()
+            
+            # Remove markdown code blocks if present
+            if content.startswith('```'):
+                content = content.split('\n', 1)[1]  # Remove first line
+                content = content.rsplit('\n', 1)[0]  # Remove last line
+                content = content.strip()
+            
+            # Remove 'json' language identifier if present
+            if content.startswith('json'):
+                content = content[4:].strip()
+            
+            findings = json.loads(content)
+            
+            # Ensure it's actually a list
+            if not isinstance(findings, list):
+                print(f"[extract_findings] Response was not a list: {type(findings)}")
+                findings = [str(findings)]
+            
+            # Ensure all items are strings
+            findings = [str(f) for f in findings]
+            
+            print(f"[extract_findings] Successfully extracted {len(findings)} findings")
+            
+        except json.JSONDecodeError as e:
+            print(f"[extract_findings] JSON parse error: {e}")
+            print(f"[extract_findings] Response was: {response.content[:200]}...")
+            
+            # Fallback: try to extract meaningful text
+            findings = [
+                "Analysis: " + response.content[:500] if response.content else "Unable to extract findings from search results"
+            ]
+        except Exception as e:
+            print(f"[extract_findings] Unexpected error: {e}")
+            findings = ["Error processing search results"]
         
         return {
             **state,

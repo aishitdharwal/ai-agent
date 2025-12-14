@@ -27,7 +27,8 @@ from lambda_function.app import lambda_handler
 class MockContext:
     """Mock Lambda context object for local testing"""
     def __init__(self):
-        self.request_id = f"local-test-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        self.aws_request_id = f"local-test-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        self.request_id = self.aws_request_id  # Alias for compatibility
         self.function_name = "research-agent-local-test"
         self.memory_limit_in_mb = 512
         self.invoked_function_arn = "arn:aws:lambda:local:123456789012:function:research-agent-local-test"
