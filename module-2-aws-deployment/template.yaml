@@ -32,7 +32,7 @@ Resources:
   StateBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'research-agent-state-${AWS::AccountId}'
+      BucketName: !Sub 'research-agent-state-${AWS::StackName}-${AWS::AccountId}'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -48,7 +48,7 @@ Resources:
   ResearchAgentFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: research-agent-workshop
+      FunctionName: !Sub 'research-agent-${AWS::StackName}'
       CodeUri: lambda_function/
       Handler: app.lambda_handler
       Description: Research Agent for workshop deployment
@@ -71,7 +71,7 @@ Resources:
   ResearchApi:
     Type: AWS::Serverless::Api
     Properties:
-      Name: research-agent-api
+      Name: !Sub 'research-agent-api-${AWS::StackName}'
       StageName: prod
       Cors:
         AllowMethods: "'POST, OPTIONS'"
