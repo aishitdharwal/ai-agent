@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Research Agent API - Workshop Deployment
+
+# Global configuration for all Lambda functions
+Globals:
+  Function:
+    Timeout: 300  # 5 minutes (can be increased up to 900 seconds / 15 minutes)
+    MemorySize: 512  # MB - increase if needed for faster cold starts
+    Runtime: python3.9
+    Environment:
+      Variables:
+        # These will be set from environment variables during deployment
+        OPENAI_API_KEY: !Ref OpenAIApiKey
+        TAVILY_API_KEY: !Ref TavilyApiKey
+        STATE_BUCKET: !Ref StateBucket
+
+# Parameters allow you to pass values at deployment time
+Parameters:
+  OpenAIApiKey:
+    Type: String
+    Description: OpenAI API Key
+    NoEcho: true  # Hides the value in CloudFormation console
+  
+  TavilyApiKey:
+    Type: String
+    Description: Tavily API Key
+    NoEcho: true
+
+Resources:
+  # S3 bucket for storing agent state
+  StateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'research-agent-state-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldStates
+            Status: Enabled
+            ExpirationInDays: 7  # Clean up old state files after 7 days
+
+  # Lambda function
+  ResearchAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: research-agent-workshop
+      CodeUri: lambda_function/
+      Handler: app.lambda_handler
+      Description: Research Agent for workshop deployment
+      
+      # Lambda needs permission to write to S3
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Ref StateBucket
+      
+      # API Gateway event triggers this Lambda
+      Events:
+        ResearchApi:
+          Type: Api
+          Properties:
+            Path: /research
+            Method: POST
+            RestApiId: !Ref ResearchApi
+
+  # API Gateway REST API
+  ResearchApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: research-agent-api
+      StageName: prod
+      Cors:
+        AllowMethods: "'POST, OPTIONS'"
+        AllowHeaders: "'Content-Type'"
+        AllowOrigin: "'*'"
+      # Enable CloudWatch logging
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          LoggingLevel: INFO
+          DataTraceEnabled: true
+
+# Outputs provide important information after deployment
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL for research agent"
+    Value: !Sub "https://${ResearchApi}.execute-api.${AWS::Region}.amazonaws.com/prod/research"
+  
+  LambdaFunctionArn:
+    Description: "Research Agent Lambda Function ARN"
+    Value: !GetAtt ResearchAgentFunction.Arn
+  
+  StateBucketName:
+    Description: "S3 bucket for state storage"
+    Value: !Ref StateBucket
+  
+  DeploymentInstructions:
+    Description: "How to test your deployed API"
+    Value: !Sub |
+      Test with curl:
+      curl -X POST https://${ResearchApi}.execute-api.${AWS::Region}.amazonaws.com/prod/research \
+        -H "Content-Type: application/json" \
+        -d '{"topic": "Latest developments in quantum computing"}'
