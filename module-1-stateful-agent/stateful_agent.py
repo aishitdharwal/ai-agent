@@ -262,7 +262,7 @@ def main():
     agent = StatefulResearchAgent()
     
     # Test research
-    topic = "Latest developments in quantum computing"
+    topic = "Latest developments in quantum computing in 2025"
     result = agent.research(topic)
     
     print("\n" + "="*50)
